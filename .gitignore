@@ -1,0 +1,23 @@
+# Virtual environment
+venv/
+.venv/
+
+# Datasets
+data/raw/
+data/processed/
+
+# Trained models
+model/base_model/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Partial downloads
+*.crdownload
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env
