@@ -33,6 +33,7 @@ def clean_value(v):
 
 print(df.columns.tolist())
 
+i = 0
 for index, row in sample.iterrows():
     review = {k: clean_value(v) for k, v in {
         "Id": row["Id"],
@@ -53,7 +54,11 @@ for index, row in sample.iterrows():
         callback=review_report
     )
 
+    i = i + 1
+
     producer.poll(0)
-    time.sleep(random.uniform(0.1, 0.3))
+    time.sleep(random.uniform(0.1, 0.5))
+
+print(i)
 
 producer.flush()
