@@ -8,6 +8,7 @@ models = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     models["model"] = model
+    
     yield
     models.clear()
 
