@@ -38,5 +38,16 @@ services:
     environment:
       - JUPYTER_TOKEN=devtoken
 
+
+  api:
+    build: .
+    container_name: nlp-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./model:/app/model
+    depends_on:
+      - kafka
+
 volumes:
   kafka_kraft:
