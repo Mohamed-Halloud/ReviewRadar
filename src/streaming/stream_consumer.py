@@ -1,17 +1,19 @@
+from datetime import datetime
 from time import time  
+import json
 
 import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StringType, DoubleType, LongType
 from pyspark.sql.functions import from_json, col
 import logging
+
 from src.model.inference import tokenizer, model, predict_batch
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    filename='logs/spark_consumer.log'
 )
 logger = logging.getLogger(__name__)
 
@@ -20,10 +22,10 @@ spark = (
     .appName("KafkaIntegration")
     .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0")
     .config("spark.local.dir", "C:/spark-tmp")
+    .config("spark.driver.memory", "2g")
     .getOrCreate()
 )
 
-# Read stream from Kafka topic (localhost since running outside Docker)
 df = (
     spark.readStream
     .format("kafka")
@@ -32,7 +34,6 @@ df = (
     .load()
 )
 
-# Schema of the incoming JSON messages
 schema = (
     StructType()
     .add("Id", StringType())
@@ -45,41 +46,43 @@ schema = (
     .add("label", LongType())
 )
 
-# Parse raw Kafka bytes into structured columns
 parsed = (
     df.selectExpr("CAST(value AS STRING) as json_str")
     .select(from_json(col("json_str"), schema).alias("data"))
     .select("data.*")
 )
 
+def log_batch_stats(batch_id, num_reviews, latency, avg_confidence):
+    record = {
+        "timestamp": datetime.now().isoformat(),
+        "batch_id": batch_id,
+        "reviews": num_reviews,
+        "latency": round(latency, 3),
+        "throughput": round(num_reviews / latency, 2) if latency > 0 else 0,
+        "avg_confidence": round(avg_confidence, 3)
+    }
+    logger.info(json.dumps(record))
 
 def process_batch(batch_df, batch_id):
     pandas_df = batch_df.toPandas()
 
     if pandas_df.empty:
-        logger.info(f"batch {batch_id} empty, skipping")
+        logger.info(json.dumps({"timestamp": datetime.now().isoformat(), "batch_id": batch_id, "status": "empty"}))
         return
 
     start = time()
     try:
-        # Run inference on the whole batch
         predictions, confidences = predict_batch(pandas_df["review/text"].tolist(), tokenizer, model)
-
     except Exception as e:
-        logger.error(f"Batch {batch_id} failed: {str(e)}")
+        logger.error(json.dumps({"timestamp": datetime.now().isoformat(), "batch_id": batch_id, "error": str(e)}))
         return 
 
     latency = time() - start
 
     pandas_df["prediction"] = predictions
     pandas_df["confidence"] = confidences
-    
-    # Log batch stats
-    logger.info(
-        f"Batch {batch_id}: processed {len(pandas_df)} reviews in {latency:.3f}s "
-        f"({len(pandas_df)/latency:.1f} reviews/sec), "
-        f"avg_confidence={pandas_df['confidence'].mean():.2f}"
-    )
+
+    log_batch_stats(batch_id, len(pandas_df), latency, pandas_df['confidence'].mean())
     print(pandas_df[["Id", "review/text", "prediction", "confidence"]])
 
 parsed.writeStream.foreachBatch(process_batch).start().awaitTermination()
