@@ -1,39 +1,13 @@
-import streamlit as st
-import pandas as pd
-import json
 import time
-from pathlib import Path
+
+import pandas as pd
+import streamlit as st
+
+from drift import LOG_PATH, load_batches, load_baseline, check_drift
 
 st.title("NLP Pipeline — Live Monitoring")
 
-LOG_PATH = Path("logs/spark_consumer.log")
-
-def load_batches():
-    records = []
-
-    if not LOG_PATH.exists():
-        return pd.DataFrame()
-
-    with open(LOG_PATH, 'r') as f:
-        for line in f:
-            # Skip any log line that isn't one of our batch records
-            if '"batch_id"' not in line:
-                continue
-
-            try:
-                # Strip the logging prefix and parse the remaining JSON
-                json_str = line.split("INFO:__main__:", 1)[-1].strip()
-                record = json.loads(json_str)
-                if 'reviews' in record:
-                    records.append(record)
-            except (json.JSONDecodeError, IndexError):
-                # Skip malformed/partial lines instead of crashing
-                continue
-
-    return pd.DataFrame(records)
-
-
-df = load_batches()
+df = load_batches(LOG_PATH)
 
 if df.empty:
     st.warning("No batch data found yet.")
@@ -55,6 +29,37 @@ else:
     else:
         st.success("Pipeline healthy")
 
+    # Drift check: last 20 batches vs the saved baseline
+    baseline = load_baseline()
+    drift = check_drift(df, baseline)
+
+    if baseline is None:
+        st.info("No baseline yet: run drift.py to create one")
+    elif drift is None:
+        st.info("Drift check waiting for more batches")
+    else:
+        if drift["drifted"]:
+            st.error(
+                f"Drift detected: positive ratio changed by {drift['ratio_change']:.2f}, "
+                f"confidence dropped by {drift['confidence_drop']:.2f}"
+            )
+        else:
+            st.success("No drift detected")
+
+        # Baseline vs current, side by side
+        d1, d2 = st.columns(2)
+        d1.metric(
+            "Positive ratio",
+            f"{drift['current_ratio']:.2f}",
+            delta=f"{drift['current_ratio'] - baseline['positive_ratio']:+.2f} vs baseline",
+            delta_color="off",
+        )
+        d2.metric(
+            "Mean confidence",
+            f"{drift['current_confidence']:.2f}",
+            delta=f"{drift['current_confidence'] - baseline['mean_confidence']:+.2f} vs baseline",
+        )
+
     # Summary metrics
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total batches", len(df))
@@ -75,7 +80,7 @@ else:
     st.dataframe(df.tail(20).sort_values("timestamp", ascending=False), use_container_width=True)
 
     # Flag low-confidence batches
-    low_conf = df[df["avg_confidence"] < 0.6]
+    low_conf = df[df["avg_confidence"] < CONFIDENCE_THRESHOLD]
     if not low_conf.empty:
         st.subheader("Low-confidence batches (<0.6)")
         st.dataframe(low_conf, use_container_width=True)
