@@ -3,3 +3,5 @@ uvicorn
 transformers
 pydantic
 streamlit
+pytest
+ruff

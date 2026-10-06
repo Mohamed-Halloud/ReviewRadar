@@ -60,7 +60,6 @@ parsed = (
 
 
 def log_batch_stats(batch_id, num_reviews, latency, avg_confidence, positives):
-    """Write one JSON line of stats per batch (read by the dashboard and drift detector)."""
     record = {
         "timestamp": datetime.now().isoformat(),
         "batch_id": batch_id,

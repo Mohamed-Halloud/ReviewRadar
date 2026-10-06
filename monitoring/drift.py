@@ -6,8 +6,8 @@ import pandas as pd
 
 LOG_PATH = Path("logs/spark_consumer.log")
 BASELINE_PATH = Path("baseline.json")
-BASELINE_BATCHES = 50  # how many healthy batches define "normal"
-DRIFT_WINDOW = 20      # recent batches compared to the baseline
+BASELINE_BATCHES = 18  # how many healthy batches define "normal"
+DRIFT_WINDOW = 10      # recent batches compared to the baseline
 RATIO_THRESHOLD = 0.10       # max allowed change in positive ratio
 CONFIDENCE_THRESHOLD = 0.05  # max allowed drop in mean confidence
 

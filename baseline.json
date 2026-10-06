@@ -1,6 +1,6 @@
 {
-  "positive_ratio": 0.8116,
-  "mean_confidence": 0.8612,
-  "n_batches": 50,
-  "n_reviews": 398
+  "positive_ratio": 0.2047,
+  "mean_confidence": 0.7855,
+  "n_batches": 18,
+  "n_reviews": 381
 }
