@@ -28,6 +28,8 @@ jobs:
         run: ruff check .
 
       - name: Lancer les tests unitaires
+        env:
+          PYTHONPATH: .
         run: pytest tests/test_drift.py -v
 
       - name: Docker build
