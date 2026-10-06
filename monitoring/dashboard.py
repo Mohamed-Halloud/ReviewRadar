@@ -2,8 +2,7 @@ import time
 
 import pandas as pd
 import streamlit as st
-
-from drift import LOG_PATH, load_batches, load_baseline, check_drift
+from drift import LOG_PATH, check_drift, load_baseline, load_batches
 
 st.title("NLP Pipeline — Live Monitoring")
 

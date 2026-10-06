@@ -1,10 +1,11 @@
-import time
 import logging
+import time
 
 from fastapi import FastAPI, HTTPException
 from fastapi.concurrency import asynccontextmanager
-from model.inference import tokenizer, model, predict_batch
+
 from api.schemas import PredictionRequest, PredictionResponse
+from model.inference import model, predict_batch, tokenizer
 
 # Configure logging
 logging.basicConfig(
@@ -50,8 +51,8 @@ def prediction(request: PredictionRequest):
         labels_pred, confidences = predict_batch([review], tokenizer, models["model"])
         label = labels_pred[0]
         confidence = confidences[0]
-    except Exception as e:
-        logger.error(f"Prediction failed: {str(e)}")
+    except Exception as e: # noqa: BLE001
+        logger.error(f"Prediction failed: {e!s}")
         raise HTTPException(status_code=500, detail="prediction failed")
     latency = time.time() - start
 

@@ -1,13 +1,13 @@
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from time import time
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col
-from pyspark.sql.types import StructType, StringType, DoubleType, LongType
+from pyspark.sql.functions import col, from_json
+from pyspark.sql.types import DoubleType, LongType, StringType, StructType
 
-from src.model.inference import tokenizer, model, predict_batch
+from src.model.inference import model, predict_batch, tokenizer
 
 # Label id the model uses for "positive" (check this matches your training labels)
 POSITIVE_LABEL = 2
@@ -61,7 +61,7 @@ parsed = (
 
 def log_batch_stats(batch_id, num_reviews, latency, avg_confidence, positives):
     record = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "batch_id": batch_id,
         "reviews": num_reviews,
         "latency": round(latency, 3),
@@ -84,7 +84,7 @@ def process_batch(batch_df, batch_id):
     # Nothing to do for empty batches (log it so the gap is visible)
     if pandas_df.empty:
         logger.info(json.dumps({
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "batch_id": batch_id,
             "status": "empty",
         }))
@@ -96,9 +96,9 @@ def process_batch(batch_df, batch_id):
         predictions, confidences = predict_batch(
             pandas_df["review/text"].tolist(), tokenizer, model
         )
-    except Exception as e:
+    except Exception as e: # noqa: BLE001
         logger.error(json.dumps({
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "batch_id": batch_id,
             "error": str(e),
         }))

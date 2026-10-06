@@ -1,6 +1,7 @@
 import os
+
 import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # Resolve the model path relative to this file, so it works regardless of cwd
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

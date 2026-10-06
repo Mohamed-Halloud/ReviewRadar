@@ -3,6 +3,7 @@ import pytest
 
 from monitoring.drift import compute_stats
 
+
 def test_compute_stats():
     
     df = pd.DataFrame({

@@ -1,10 +1,10 @@
 import json
-import random
-
-from confluent_kafka import Producer
-import time
-import pandas as pd
 import logging
+import random
+import time
+
+import pandas as pd
+from confluent_kafka import Producer
 
 logging.basicConfig(
     level=logging.INFO,

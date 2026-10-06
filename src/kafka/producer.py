@@ -1,8 +1,8 @@
 import json
 import time
-from confluent_kafka import Producer
+
 import pandas as pd
-import numpy as np
+from confluent_kafka import Producer
 
 books_rating = pd.read_csv("data/raw/Books_rating.csv", nrows=5000)
 

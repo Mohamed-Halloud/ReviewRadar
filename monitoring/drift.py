@@ -70,7 +70,7 @@ def save_baseline(n=BASELINE_BATCHES, log_path=LOG_PATH, out_path=BASELINE_PATH)
 
     baseline_df = df.head(n)
     stats = compute_stats(baseline_df)
-    stats["n_batches"] = int(len(baseline_df))
+    stats["n_batches"] = len(baseline_df)
     stats["n_reviews"] = int(baseline_df["reviews"].sum())
 
     with open(out_path, "w") as f:
