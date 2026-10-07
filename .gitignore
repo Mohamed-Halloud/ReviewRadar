@@ -6,8 +6,6 @@ venv/
 data/raw/
 data/processed/
 
-# Trained models
-model/best_model/
 
 # Jupyter
 .ipynb_checkpoints/
