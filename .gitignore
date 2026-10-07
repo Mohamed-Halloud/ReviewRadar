@@ -20,4 +20,5 @@ __pycache__/
 # Environment variables
 .env
 
+model/
 logs/

@@ -105,8 +105,10 @@ flowchart LR
 
 | Metric | Value |
 |---|---|
-| Accuracy | XX.X % |
-| Macro F1 | XX.X % |
+| Accuracy | 84.8 % |
+| Macro F1 | 65.0 % |
+
+Accuracy is higher than macro F1 because the data is imbalanced (reviews skew positive), so the minority classes are predicted less well than the majority class.
 
 **Pipeline** (local run, CPU only)
 
@@ -134,23 +136,24 @@ flowchart LR
 ```
 .
 ├── src/
-│   ├── api/                  # FastAPI service (POST /predict)
+│   ├── api/                       # FastAPI service (POST /predict)
 │   ├── model/
-│   │   └── inference.py      # tokenizer, model loading, predict_batch
+│   │   └── inference.py           # tokenizer, model loading, predict_batch
 │   └── streaming/
-│       ├── producer.py       # Kafka producer (reads the dataset)
-│       └── stream_consumer.py# Spark Structured Streaming consumer
+│       ├── stream_producer.py     # Kafka producer (reads the dataset)
+│       └── stream_consumer.py     # Spark Structured Streaming consumer
 ├── monitoring/
-│   ├── dashboard.py          # Streamlit dashboard
-│   └── drift.py              # log parsing, baseline, drift detection
+│   ├── dashboard.py               # Streamlit dashboard
+│   └── drift.py                   # log parsing, baseline, drift detection
+├── notebooks/                     # training and batch inference notebooks
 ├── tests/
-│   └── test_drift.py         # unit tests for the drift logic
-├── model/                    # fine-tuned weights (not tracked by git)
-├── baseline.json             # reference statistics for drift detection
-├── docker-compose.yml        # Kafka + API
-├── Dockerfile                # API image
+│   └── test_drift.py              # unit tests for the drift logic
+├── model/                         # fine-tuned weights (not tracked by git)
+├── baseline.json                  # reference statistics for drift detection
+├── docker-compose.yml             # Kafka + API
+├── Dockerfile                     # API image
 ├── requirements.txt
-├── requirements-dev.txt      # test and lint dependencies
+├── requirements-dev.txt           # test and lint dependencies
 └── .github/workflows/tests.yml
 ```
 
@@ -175,16 +178,28 @@ cd ReviewRadar
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
+mkdir -p logs                   # the consumer writes its log here
 ```
 
-### 2. Get the model weights
+### 2. Get the data
 
-The fine-tuned weights are not stored in git. Place them in the `model/` folder:
+The producer streams reviews from a local file. Download the Amazon reviews dataset from `https://www.kaggle.com/datasets/mohamedbakhet/amazon-books-reviews` and place it at `/data/raw`.
 
-- **Option A:** download them from `<HUGGING-FACE-MODEL-URL>` into `model/`
-- **Option B:** retrain with `<TRAINING-NOTEBOOK-OR-SCRIPT>`
+### 3. Get the model weights
 
-### 3. Start Kafka and the API
+The fine-tuned weights are not stored in git. Download them from Hugging Face into the `model/` folder:
+
+```bash
+pip install huggingface_hub
+hf download MohamedHD/reviewradar-distilbert --local-dir model/best_model
+```
+
+Alternatively, retrain the model with `notebooks/02_spark_batch_inference_3class.ipynb`.
+
+> Do this step **before** step 4: the API image copies `model/` at build time, so the build fails if the weights are missing.
+
+### 4. Start Kafka and the API
 
 ```bash
 docker compose up -d kafka api
@@ -197,7 +212,7 @@ docker exec kafka kafka-topics --bootstrap-server localhost:9092 \
   --create --topic reviews-stream --partitions 3 --replication-factor 1
 ```
 
-### 4. Start the streaming consumer
+### 5. Start the streaming consumer
 
 Open a terminal, from the project root:
 
@@ -207,15 +222,15 @@ python -m src.streaming.stream_consumer
 
 The first start downloads the Spark Kafka connector, so it needs an internet connection.
 
-### 5. Start the producer
+### 6. Start the producer
 
 In a second terminal:
 
 ```bash
-python -m src.streaming.producer
+python -m src.streaming.stream_producer
 ```
 
-### 6. Open the dashboard
+### 7. Open the dashboard
 
 In a third terminal:
 
@@ -225,7 +240,7 @@ streamlit run monitoring/dashboard.py
 
 Then open http://localhost:8501.
 
-### 7. Create the drift baseline
+### 8. Create the drift baseline
 
 After the consumer has processed at least 50 batches (a few minutes), run once:
 
@@ -257,7 +272,7 @@ Follow these checks in order to confirm that every component works. Each step li
 | 4 | API predicts | see command below | JSON with a sentiment label and a confidence |
 | 5 | Consumer is processing | `tail -f logs/spark_consumer.log` | one JSON line per batch with `reviews`, `latency`, `avg_confidence`, `positives` |
 | 6 | Dashboard shows data | open http://localhost:8501 | metrics and charts update every 5 seconds, banner says "Pipeline healthy" |
-| 7 | Drift check is active | after step 7 above | banner says "No drift detected" with baseline vs. current values |
+| 7 | Drift check is active | after creating the baseline (Getting Started, step 8) | banner says "No drift detected" with baseline vs. current values |
 | 8 | Tests pass | `pytest tests/ -v` | all tests pass |
 
 **API test (step 4):**
@@ -310,12 +325,13 @@ Both statistics are **weighted by batch size** (sum of positives divided by sum 
 | Problem | Fix |
 |---|---|
 | `ModuleNotFoundError: src` | Run commands from the project root, using `python -m ...` |
+| `FileNotFoundError` for `logs/spark_consumer.log` | Create the folder first: `mkdir -p logs` |
 | Spark crashes on Windows | Install Hadoop/winutils, set `HADOOP_HOME`, and keep `spark.local.dir` and `spark.driver.memory=2g` in the consumer config |
 | Consumer cannot reach Kafka | From the host use `localhost:29092`; between containers use `kafka:9092` |
 | Topic has only one partition | It was auto-created. Delete it and recreate it with `--partitions 3` |
 | Dashboard says "No batch data found" | Check that the consumer is running and `logs/spark_consumer.log` exists |
 | Dashboard says "No baseline yet" | Run `python monitoring/drift.py` after at least 50 batches |
-| API container exits | Check that the model weights are in `model/` |
+| API container exits or the image build fails | Check that the model weights are in `model/` (step 3) |
 | Port already in use | Stop the other service or change the port mapping in `docker-compose.yml` |
 
 ---
@@ -328,16 +344,6 @@ Both statistics are **weighted by batch size** (sum of positives divided by sum 
 - **Airflow was dropped.** Spark Structured Streaming already runs continuously, so a batch orchestrator added complexity without value for this pipeline.
 - **Partitioned topic.** `reviews-stream` has 3 partitions so Spark can read it in parallel.
 - **Lightweight CI.** CI only installs what the tests need (no Kafka, Spark, or model weights), so it finishes in seconds.
-
----
-
-## Roadmap
-
-- [ ] Containerize the producer, Spark consumer, and dashboard in `docker-compose.yml` (one-command startup)
-- [ ] Kafka consumer groups and horizontal scaling demo
-- [ ] Aspect-based / multi-label sentiment
-- [ ] Automated retraining when drift is detected
-- [ ] Cloud deployment and continuous delivery of the API image
 
 ---
 

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from time import time
 
@@ -9,32 +10,43 @@ from pyspark.sql.types import DoubleType, LongType, StringType, StructType
 
 from src.model.inference import model, predict_batch, tokenizer
 
-# Label id the model uses for "positive" (check this matches your training labels)
+# Label id the model uses for "positive" 
 POSITIVE_LABEL = 2
 
-# Logging to file (keep the default format: the drift parser expects the "INFO:__main__:" prefix)
+
+MAX_BATCH_SIZE = 8       # max reviews per micro-batch
+TRIGGER_SECONDS = 2      # a new micro-batch every 2 seconds
+
+# Kafka address
+KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")
+
+# Logging to file
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
-    filename='logs/spark_consumer.log'
+    filename="logs/spark_consumer.log"
 )
 logger = logging.getLogger(__name__)
 
 # Local Spark session with the Kafka connector
-spark = (
+builder = (
     SparkSession.builder
     .appName("KafkaIntegration")
     .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0")
-    .config("spark.local.dir", "C:/spark-tmp")  # Windows temp dir for Spark
-    .config("spark.driver.memory", "2g")        # prevents JVM crashes
-    .getOrCreate()
+    .config("spark.driver.memory", "2g")  # prevents JVM crashes
 )
+if os.name == "nt":
+    # Windows only: temp dir for Spark
+    builder = builder.config("spark.local.dir", "C:/spark-tmp")
+spark = builder.getOrCreate()
 
 # Read the raw stream from Kafka
 df = (
     spark.readStream
     .format("kafka")
-    .option("kafka.bootstrap.servers", "localhost:29092")
+    .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP)
     .option("subscribe", "reviews-stream")
+    .option("maxOffsetsPerTrigger", MAX_BATCH_SIZE)  # cap reviews per micro-batch
     .load()
 )
 
@@ -60,6 +72,7 @@ parsed = (
 
 
 def log_batch_stats(batch_id, num_reviews, latency, avg_confidence, positives):
+    """Write one JSON line of stats per batch (read by the dashboard and drift detector)."""
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "batch_id": batch_id,
@@ -74,14 +87,14 @@ def log_batch_stats(batch_id, num_reviews, latency, avg_confidence, positives):
 
 def count_positives(predictions):
     """Count how many predictions are the positive class."""
-    return sum(1 for p in predictions if p == 2)
+    return sum(1 for p in predictions if p == POSITIVE_LABEL)
 
 
 def process_batch(batch_df, batch_id):
     """Called by Spark for every micro-batch: run inference and log stats."""
     pandas_df = batch_df.toPandas()
 
-    # Nothing to do for empty batches (log it so the gap is visible)
+    # Nothing to do for empty batches
     if pandas_df.empty:
         logger.info(json.dumps({
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -96,7 +109,7 @@ def process_batch(batch_df, batch_id):
         predictions, confidences = predict_batch(
             pandas_df["review/text"].tolist(), tokenizer, model
         )
-    except Exception as e: # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         logger.error(json.dumps({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "batch_id": batch_id,
@@ -120,5 +133,11 @@ def process_batch(batch_df, batch_id):
     print(pandas_df[["Id", "review/text", "prediction", "confidence"]])
 
 
-# Start the stream: each micro-batch goes through process_batch
-parsed.writeStream.foreachBatch(process_batch).start().awaitTermination()
+# Start the stream: a micro-batch every TRIGGER_SECONDS, each one goes through process_batch
+query = (
+    parsed.writeStream
+    .foreachBatch(process_batch)
+    .trigger(processingTime=f"{TRIGGER_SECONDS} seconds")
+    .start()
+)
+query.awaitTermination()
