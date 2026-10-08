@@ -72,7 +72,7 @@ parsed = (
 
 
 def log_batch_stats(batch_id, num_reviews, latency, avg_confidence, positives):
-    """Write one JSON line of stats per batch (read by the dashboard and drift detector)."""
+    """Write one JSON line of stats per batch"""
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "batch_id": batch_id,
@@ -133,7 +133,7 @@ def process_batch(batch_df, batch_id):
     print(pandas_df[["Id", "review/text", "prediction", "confidence"]])
 
 
-# Start the stream: a micro-batch every TRIGGER_SECONDS, each one goes through process_batch
+# Start the stream:
 query = (
     parsed.writeStream
     .foreachBatch(process_batch)

@@ -115,5 +115,4 @@ def check_drift(df, baseline, window=DRIFT_WINDOW):
 
 
 if __name__ == "__main__":
-    # Run from the project root: python <path>/drift.py
     print(save_baseline())

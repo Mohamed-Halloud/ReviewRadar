@@ -195,7 +195,7 @@ pip install huggingface_hub
 hf download MohamedHD/reviewradar-distilbert --local-dir model/best_model
 ```
 
-Alternatively, retrain the model with `notebooks/02_spark_batch_inference_3class.ipynb`.
+Alternatively, retrain the model with `notebooks/batching_nlp_colab.ipynb` in google colab or in your laptob if you have strong GPU.
 
 > Do this step **before** step 4: the API image copies `model/` at build time, so the build fails if the weights are missing.
 

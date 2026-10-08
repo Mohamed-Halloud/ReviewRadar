@@ -19,8 +19,8 @@ DATA_PATH = "data/processed/books_reviews_clean/"
 TOPIC = "reviews-stream"
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")
 
-NEGATIVE_LABEL = 0         # label id of the "negative" class (check against your training labels)
-DELAY_RANGE = (0.1, 0.5)   # random delay between reviews (about 3 reviews/second)
+NEGATIVE_LABEL = 0         # label id of the "negative" class 
+DELAY_RANGE = (0.1, 0.5)   # random delay between reviews 
 
 FIELDS = [
     "Id", "Title", "User_id", "review/score",
