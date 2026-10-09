@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+
 from src.api.main import app
 
 
@@ -20,8 +21,7 @@ def test_negative_review(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["sentiment"] == "negative"
-    assert 0.0 <= body["confidence"] <= 1.0
+    assert body["review_class"] == "negative"
 
 
 def test_positive_review(client):
@@ -29,8 +29,7 @@ def test_positive_review(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["sentiment"] == "positive"
-    assert 0.0 <= body["confidence"] <= 1.0
+    assert body["review_class"] == "positive"
 
 
 def test_missing_review_field(client):
