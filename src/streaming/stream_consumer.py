@@ -8,7 +8,9 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json
 from pyspark.sql.types import DoubleType, LongType, StringType, StructType
 
-from src.model.inference import model, predict_batch, tokenizer
+from src.model.inference import load_model, predict_batch
+
+tokenizer, model = load_model()
 
 # Label id the model uses for "positive" 
 POSITIVE_LABEL = 2

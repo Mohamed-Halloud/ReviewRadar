@@ -25,10 +25,6 @@ def load_model():
     return tokenizer, model
 
 
-# Load once at import time so the model isn't reloaded on every prediction
-tokenizer, model = load_model()
-
-
 def predict_batch(text, tokenizer, model):
     with torch.no_grad():
         # Tokenize and pad/truncate the whole batch at once
