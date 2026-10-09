@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from time import time
 
 from pyspark.sql import SparkSession
@@ -74,7 +74,7 @@ parsed = (
 def log_batch_stats(batch_id, num_reviews, latency, avg_confidence, positives):
     """Write one JSON line of stats per batch"""
     record = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "batch_id": batch_id,
         "reviews": num_reviews,
         "latency": round(latency, 3),
@@ -97,7 +97,7 @@ def process_batch(batch_df, batch_id):
     # Nothing to do for empty batches
     if pandas_df.empty:
         logger.info(json.dumps({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "batch_id": batch_id,
             "status": "empty",
         }))
@@ -111,7 +111,7 @@ def process_batch(batch_df, batch_id):
         )
     except Exception as e:  # noqa: BLE001
         logger.error(json.dumps({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "batch_id": batch_id,
             "error": str(e),
         }))

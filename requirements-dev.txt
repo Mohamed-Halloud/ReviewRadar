@@ -1,4 +1,4 @@
 pandas
 numpy
 pytest
-ruff
+ruff==0.16.10
