@@ -1,4 +1,5 @@
 pandas
 numpy
 pytest
+httpx
 ruff==0.16.10

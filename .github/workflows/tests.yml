@@ -17,16 +17,21 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"   
+          python-version: "3.11"
           cache: pip
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
-      - name: Installer les dépendances de test
+      - name: Installer torch (CPU)
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Run Ruff (Linter)
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Linter
         run: ruff check .
 
       - name: Lancer les tests unitaires
