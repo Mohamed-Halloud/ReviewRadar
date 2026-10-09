@@ -4,8 +4,9 @@ import time
 from fastapi import FastAPI, HTTPException
 from fastapi.concurrency import asynccontextmanager
 
-from .schemas import PredictionRequest, PredictionResponse
 from src.model.inference import model, predict_batch, tokenizer
+
+from .schemas import PredictionRequest, PredictionResponse
 
 # Configure logging
 logging.basicConfig(
