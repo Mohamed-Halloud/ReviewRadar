@@ -25,14 +25,11 @@
 10. [Monitoring and Drift Detection](#monitoring-and-drift-detection)
 11. [Troubleshooting](#troubleshooting)
 12. [Design Decisions](#design-decisions)
-13. [Roadmap](#roadmap)
-14. [Author](#author)
+13. [Author](#author)
 
 ---
 
 ## Overview
-
-Most ML projects stop at a trained model in a notebook. This project goes further and shows what happens **after** training:
 
 - reviews arrive as a **continuous stream**, not a static file
 - predictions are produced in **micro-batches** with measured latency and throughput
@@ -46,20 +43,6 @@ Most ML projects stop at a trained model in a notebook. This project goes furthe
 ## Architecture
 
 ![Architecture](docs/images/architecture.png)
-
-```mermaid
-flowchart LR
-    A[Amazon Reviews dataset] --> B[Kafka Producer]
-    B --> C[(Kafka topic: reviews-stream)]
-    C --> D[Spark Structured Streaming consumer]
-    M[Fine-tuned DistilBERT model] --> E
-    D --> E[Sentiment inference]
-    E --> F[(Structured JSON logs)]
-    F --> G[Streamlit dashboard]
-    H[baseline.json] --> G
-    G --> I{Health and drift checks}
-    M --> J[FastAPI: POST /predict]
-```
 
 **Data flow**
 
@@ -147,6 +130,8 @@ Accuracy is higher than macro F1 because the data is imbalanced (reviews skew po
 │   └── drift.py                   # log parsing, baseline, drift detection
 ├── notebooks/                     # training and batch inference notebooks
 ├── tests/
+    ├── test_api.py                # unit tests for the api logic
+    ├── test_inference.py          # unit tests for the inference logic
 │   └── test_drift.py              # unit tests for the drift logic
 ├── model/                         # fine-tuned weights (not tracked by git)
 ├── baseline.json                  # reference statistics for drift detection
@@ -185,6 +170,8 @@ mkdir -p logs                   # the consumer writes its log here
 ### 2. Get the data
 
 The producer streams reviews from a local file. Download the Amazon reviews dataset from `https://www.kaggle.com/datasets/mohamedbakhet/amazon-books-reviews` and place it at `/data/raw`.
+
+Your gonna need to clean this data and place in `/data/processed` by using `notebooks/02_spark_batch_inference_3class.ipynb`
 
 ### 3. Get the model weights
 
